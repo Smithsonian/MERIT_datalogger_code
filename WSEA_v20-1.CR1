@@ -1,0 +1,1054 @@
+ 'CR1000 Series Datalogger
+'Feedback control warming experiment for WSEA experiment loggers
+'Program author: Roy Rich 3/2020 rev v20.1
+'Attached configuration file WSEA_VCONFIG4.CR1
+
+' 2020 revisions...
+' Add NDVI sensors (2019 ' Can sesnors support R commands.
+' simplify tables , add met table to both sites
+' add level data for surface heating maximum
+
+'Components:
+' surface and belowground control
+' linkages for arduino feedback control modbus system
+'
+' Instruments attached
+' GillMET600 (SDI-12) (Wind and Rain Guage)
+' LI190 PAR Sensor
+' LI200RX Pyranometer
+' Current Sesnors (not programmed yet)
+' CS456 Sesnors water level sensors (SDI-12)
+' This is the operational 2nd edition of the program and can be used on all marsh sites. It has case select statements in both config and program files.
+' Some variables such as message and checks need to be calibrated.
+
+' 13/5/2008
+'This program runs all plots independently bur has no data filling for robustness yet.
+
+
+'Declare Public Variables
+Public PTemp,
+Public batt_volt
+
+Dim k
+
+'Public PB
+Public Flag(10) As Boolean ' Flag 1-10 are for Pioneer and High Marsh, Flags 11-20 are for Low Marsh ()
+Public STATNAME As String
+
+' PAR SENSOR
+Public PAR1
+Public PAR2
+Public PAR_Den
+Public PAR_Tot
+Units PAR_Den= micromols/s/m^2
+Units PAR_Tot= mmol/m^2second
+
+' SOLAR RADIATION
+Public SlrW
+Public SlrMJ
+Units SlrW=W/m²
+Units SlrMJ=MJ/m²
+
+'Declare the variable for the water level measurement
+Public CS456(2)
+'Rename the variable names
+Alias CS456(1)=CS456_Temp_C_1
+Alias CS456(2)=CS456_Temp_C_2
+Public Level_cm(1)'Level in cm
+Public Surface_Level_cm(3)'Level limit of surface (set later)
+Public Level_message As String
+
+' Modbus connections
+Public Register(9,17) As Float ' 1-9 Pioneer or high marsh, Low marsh
+Public sl_id(9)' 1-9
+Public CS_Code(1)' 1-Pioneer or High marsh, Low marsh
+Public Time_CS(1)As Float
+Const UTC_OFFSET = 0 * 3600 '- 7 Hours GMT for Utah Mountain time.
+Const EPOCH_OFFSET As Long = 631152000
+'Public POSIX_Time As Long
+'Public TimeNow As Boolean
+
+Public RXResponse(2)
+Public WriteErrors(9)'total sending errors per cycle
+Public ReadErrors(9) 'total recieving errors per cycle
+
+' standard coding 1,2,3 = ambient, 4,5,6 = low; 7,8,9 = high treatment
+' raw data thermistor channels from arduino transfered from register
+
+Public Raw_Pin(9)' wire to port 0, A8
+Public Raw_Lag(9)' wire to port 1, A9
+Public Raw_Surface(9)' wire to port 2, A10
+Public Raw_Deep(9)' wire to port 3, A11
+Public Raw_Above(9)' wire to port 4, A12
+Public Raw_Air(9)' wire to port 5, A13
+
+' cleaned data for feedback loop
+Public Pin(9)
+Public Lag(9)
+Public Surface(9)
+Public Deep(9)
+Public Above(9)
+Public Air(9)
+
+' running average
+Public PinR(9)
+Public LagR(9)
+Public SurfaceR(9)
+Public DeepR(9)
+Public AboveR(9)
+Public AirR(9)
+
+' parsed code for sensors
+Public Pin_code(9)
+Public Lag_code(9)
+Public Surface_code(9)
+Public Deep_code(9)
+Public Above_code(9)
+Public Air_code(9)
+Public Arduino_Code(9)
+Public Parse_Code(9)
+
+' parsed nan for sensors
+Public Pin_nan(9)
+Public Lag_nan(9)
+Public Surface_nan(9)
+Public Deep_nan(9)
+Public Above_nan(9)
+Public Air_nan(9)
+
+'Gill600
+Public GillAirtemp(1) 'celcius
+Public RH(1) 'percent
+Public VP(1) ' vapor pressure
+Public SVP(1)' saturated vapor pressure (kPa)
+Public VPD(1)' vapor pressure deficit (kPa)
+Public Gill600(11)
+Public Dewpt' CHECK UNITS
+Public BP 'barometer CHECK units
+Public Status(3) '(see manual status flags)
+Public Rain 'rain fall
+Public Tot_Rain 'Rain totalized in 15 minute CHECK
+Public Wind_Speed' in meter per second
+Public Wind_Direction' in degrees
+Public Wind_message As String
+' Still Need Send/Get variable from HIGHMARSH to LOWPIONEER
+
+'Averages
+Public Temp_Pin(3)' spatial average of pin by treatment by site
+Public Temp_Lag(3)' spatial average of lag by treatment by site
+Public Temp_Surface(3)' spatial average of surface by treatment by site
+
+Public Temp_Pin_Dev(3)' spatial stdev of pin by treatment by site
+Public Temp_Surface_Dev(3)' spatial stedev of surface by treatment by site
+
+Public Temp_Deep(3)' spatial average of deep by treatment by site
+Public Temp_Above(3)' spatial average of above by treatment by site
+Public Temp_Air(3)' ' spatial average of air by treatment by site
+
+Public M_Temp_Pin(9)' slope of pin over 1 minute
+Public M_Temp_Lag(9)' slope of lag over 1 minute
+Public M_Temp_Surface(9)' slope of surface over 1 minute
+
+Public Proj_Delta_Temp_Pin(9) '5 minute delta projection pin
+Public Proj_Delta_Temp_Surface(9)'5 minute delta projection surface
+Public Proj_Amb_Temp_Pin
+Public Proj_Amb_Temp_Surface
+Public Proj_Temp_Pin(9)'5 minute pin projection pin
+Public Proj_Temp_Surface(9)'5 minute surface projection pin
+
+Public Delta_Temp_Pin(9)'spatial average treatment minus ambient by site
+Public Delta_Temp_Lag(9)'spatial average treatment minus ambient by site
+Public Delta_Temp_Surface(9)'spatial average treatment minus ambient by site
+Public Delta_Temp_Deep(9)'spatial average treatment minus ambient by site
+Public Delta_Temp_Above(9)'spatial average treatment minus ambient by site
+Public Delta_Temp_Air(9)'spatial average treatment minus ambient by site
+
+Public Target_Delta_Pin(9)'delta from target_pin
+Public Target_Delta_Surface(9)' delta from target_surface
+
+Public Target_Dev_Pin(9)' deviation from target pin
+Public Target_Dev_Surface(9)' deviation from target surface
+
+Public Target_Pin(9)'target heating pin constant
+Public Target_Surface(9)'target heating surface
+
+Public surface_duty(9)'duty cycle to arduino for surface heating
+Public deep_duty(9)'duty cycle to arduino for pin heating
+Public Deep_DC_prev(9) 'calculated duty cycle
+Public Surface_DC_prev(9) ' calculated duty cycle
+Public Deep_DC(9)' duty cycle to arduinos
+Public Surface_DC(9)' upper pin DC limit
+Public Surface_DC_limit' upper surface DC limit
+
+Public Surface_Soil_Check(9)' difB minus treatment setpoint
+Public Surface_Soil_Message(9)As String ' message as to whether treatments are too high
+Public Surface_Soil_Eveness(3)As String ' message to whether treatments are differentiating based on stdev of pin sensors
+
+Public Pin_Soil_Check(9)' difB minus treatment setpoint
+Public Pin_Soil_Message(9)As String ' message as to whether treatments are too high
+Public Pin_Soil_Eveness(3)As String ' message to whether treatments are differentiating based on stdev of pin sensors
+
+' NDVI variables
+Public NDVI_A(3)
+Public NDVI_B(3)
+Public NDVI_C(3)
+Public NDVI_D(3)
+Public NDVI_E(3)
+Public NDVI_F(3)
+Public NDVI_G(3)
+Public NDVI_H(3)
+Public NDVI_I(3)
+Public NDVI_J(3)
+
+' Need to work this math out after data collection because single upward facing sensor
+' kept inprogram for record
+'Alias NDVI(1)= UpOut(1) = Red-650nm
+'Alias NDVI(2)= UpOut(2) = NIR-910 near infared
+'Alias NDVI(3) = sensor orientation index 1 = downlooking 2= upward 0=undetermined
+
+'Units UpRed = W/m^2 nm
+'Units DownRed = W/m^2 nm sr
+'Units UpNIR = W/m^2 nm
+'Units DownNIR = W/m^2 nm sr
+'
+
+'Define a data table for 15 minute maximum and minimums
+DataTable(NDVI,True,-1)
+  DataInterval(0,60,Min,10)
+Sample (3, NDVI_A(),FP2) 
+Sample (3, NDVI_B(),FP2) 
+Sample (3, NDVI_C(),FP2) 
+Sample (3, NDVI_D(),FP2) 
+Sample (3, NDVI_E(),FP2) 
+Sample (3, NDVI_F(),FP2) 
+Sample (3, NDVI_G(),FP2) 
+Sample (3, NDVI_H(),FP2) 
+Sample (3, NDVI_I(),FP2) 
+Sample (3, NDVI_J(),FP2) 
+EndTable
+
+DataTable(NDVI2,True,-1)
+  DataInterval(0,15,Min,10)
+Sample (3, NDVI_A(),FP2) 
+Sample (3, NDVI_B(),FP2) 
+Sample (3, NDVI_C(),FP2) 
+Sample (3, NDVI_D(),FP2) 
+Sample (3, NDVI_E(),FP2) 
+Sample (3, NDVI_F(),FP2) 
+Sample (3, NDVI_G(),FP2) 
+Sample (3, NDVI_H(),FP2) 
+Sample (3, NDVI_I(),FP2) 
+Sample (3, NDVI_J(),FP2) 
+EndTable
+DataTable(Export,True,-1)
+  DataInterval(0,15,Min,10)
+
+  Sample(1, STATNAME, String)
+  Sample(1, batt_volt(), FP2 )
+  Sample(10,Flag(), FP2)
+ 
+  Sample(3, Temp_Pin(), FP2) 'spatial Average
+  Sample(3, Temp_Lag(), FP2) 'spatial Average
+  Sample(3, Temp_Surface(), FP2) 'spatial Average
+  Sample(3, Temp_Deep(), FP2) 'spatial Average
+  Sample(3, Temp_Above(), FP2) 'spatial Average
+  Sample(3, Temp_Air(), FP2) 'spatial Average
+
+  Sample (9, Delta_Temp_Pin(), FP2)' Pin delta
+  Sample (9, Delta_Temp_Lag(), FP2)' Pin
+  Sample (9, Delta_Temp_Surface(), FP2)
+  Sample (9, Delta_Temp_Deep(), FP2)
+  Sample (9, Delta_Temp_Above(), FP2)
+  Sample (9, Delta_Temp_Air(), FP2)
+
+  Sample(9, Pin(), FP2)
+  Sample(9, Lag(), FP2)
+  Sample(9, Surface(), FP2)
+  Sample(9, Deep(), FP2)
+  Sample(9, Above(), FP2)
+  Sample(9, Air(), FP2)
+
+  Sample(9, PinR(), FP2)
+  Sample(9, LagR(), FP2)
+  Sample(9, SurfaceR(), FP2)
+  Sample(9, DeepR(), FP2)
+  Sample(9, AboveR(), FP2)
+  Sample(9, AirR(), FP2)
+
+  '  Average(9, Pin(),FP2,0)
+  '  Average(9, Lag(), FP2,0)
+  '  Average(9, Surface(), FP2,0)
+  '  Average(9, Deep(), FP2,0)
+  '  Average(9, Above(), FP2,0)
+  '  Average(9, Air(), FP2,0)
+
+  Sample(9, Parse_Code(), FP2)
+'  Totalize(9,ReadErrors(), FP2,0)
+'  Totalize(9,WriteErrors(), FP2,0)
+  Sample(9,ReadErrors(), FP2,0)
+  Sample(9,WriteErrors(), FP2,0)
+
+ Average (9,Surface_Soil_Check,FP2,0)
+ Average (9,Pin_Soil_Check,FP2,0)
+  Sample (9, Surface_Soil_Message(1), String) ' message as to whether treatments are too high
+  Sample (2, Surface_Soil_Eveness(2), String) ' message to whether treatments are differentiating based on stdev of pin sensors
+  Sample (9, Pin_Soil_Message(1), String) ' message as to whether treatments are too high
+  Sample (2, Pin_Soil_Eveness(2), String) ' message to whether treatments are differentiating based on stdev of pin sensors
+ 
+  Sample(9, Raw_Pin(), FP2)
+  Sample(9, Raw_Lag(), FP2)
+  Sample(9, Raw_Surface(), FP2)
+  Sample(9, Raw_Deep(), FP2)
+  Sample(9, Raw_Above(), FP2)
+  Sample(9, Raw_Air(), FP2)
+
+  StdDev(9, Raw_Pin(), FP2,0)
+  StdDev(9, Raw_Lag(), FP2,0)
+  StdDev(9, Raw_Surface(),FP2,0)
+  StdDev(9, Raw_Deep(), FP2,0)
+  StdDev(9, Raw_Above(),FP2,0)
+  StdDev(9, Raw_Air(), FP2,0)
+
+  Average(9, Surface_DC(),FP2,0 )
+  Average(9, Deep_DC(),FP2,0 )
+  Average(9, surface_duty(),FP2,0 )
+  Average(9, deep_duty(),FP2,0 )
+  
+  Maximum(1,Level_cm,FP2,0,0)
+  Average(1,Level_cm,FP2,0)
+  Minimum(1,Level_cm,FP2,0,0)
+  Maximum(1,CS456_Temp_C_1,FP2,0,0)
+  ' radiation
+EndTable
+
+DataTable(MET,Flag(10),-1)
+  DataInterval(0,15,Min,10)
+  'waterlevel
+  Sample(1, STATNAME, String)
+  Maximum(1,Level_cm,FP2,0,0)
+  Average(1,Level_cm,FP2,0)
+  Minimum(1,Level_cm,FP2,0,0)
+  Maximum(1,CS456_Temp_C_1,FP2,0,0)
+  ' radiation
+  Average(1,SlrW,FP2,False)
+  Totalize(1,SlrMJ,FP2,False)
+  Average(1,PAR_Den, FP2, 0)
+  Totalize(1, PAR_Tot, FP2, 0)
+  Average(1, GillAirtemp, Fp2,0) ' HMP 60 air temp
+  Average(1, RH, Fp2,0)' HMP110 Relative humdity
+  Average(1, VP, Fp2,0)'HMP110 Vapor Pressure
+  Average(1, VPD, Fp2,0)' HMP110 Vapor Pressure Deficit
+  Average(1, SVP, Fp2,0)'HMP110 Saturated Vapor Pressure
+  Average(1, Wind_Speed, Fp2,0) ' Wind Speed in meter's per second
+  Maximum(1, Wind_Speed, Fp2,0,0) ' Wind Speed in meter's per second
+  Minimum(1, Wind_Speed, Fp2,0,0) ' Wind Speed in meter's per second
+  Average(1, Wind_Direction, Fp2,0)
+  Sample(1, Wind_message, String)
+EndTable
+
+
+
+DataTable (Control,TRUE,-1)
+  DataInterval (0,3,min,10)
+
+  Sample(1, STATNAME, String)
+  Sample(1,Flag(), FP2)
+  Sample(1, batt_volt(), FP2 )
+  '  Sample(3, Temp_Pin(), FP2) 'spatial Average
+  '  Sample(3, Temp_Lag(), FP2) 'spatial Average
+  '  Sample(3, Temp_Surface(), FP2) 'spatial Average
+  '  Sample(3, Temp_Deep(), FP2) 'spatial Average
+  '  Sample(3, Temp_Above(), FP2) 'spatial Average
+  '  Sample(3, Temp_Air(), FP2) 'spatial Average
+
+  Sample (9, Delta_Temp_Pin(), FP2)' Pin delta
+  Sample (9, Delta_Temp_Lag(), FP2)' Pin
+  Sample (9, Delta_Temp_Surface(), FP2)
+  Sample (9, Delta_Temp_Deep(), FP2)
+  Sample (9, Delta_Temp_Above(), FP2)
+  Sample (9, Delta_Temp_Air(), FP2)
+
+  Sample(9, Pin(), FP2)
+  Sample(9, Lag(), FP2)
+  Sample(9, Surface(), FP2)
+  Sample(9, Deep(), FP2)
+  Sample(9, Above(), FP2)
+  Sample(9, Air(), FP2)
+
+'  Avera(9, Pin(),FP2,0)
+'  Average(9, Lag(), FP2,0)
+'  Average(9, Surface(), FP2,0)
+''  Average(9, Deep(), FP2,0)
+'  Average(9, Above(), FP2,0)
+'  Average(9, Air(), FP2,0)
+''
+'  'Totalize(9,ReadErrors(), FP2,0)
+'  'Totalize(9,WriteErrors(), FP2,0)
+'  Sample(9,ReadErrors(), FP2,0)
+'  Sample(9,WriteErrors(), FP2,0)
+
+'  Average(3,Surface_Soil_Check,FP2,0)
+'  Average(3,Pin_Soil_Check,FP2,0)
+'  Sample (2, Surface_Soil_Message(2), String) ' message as to whether treatments are too high
+'  Sample (2, Surface_Soil_Eveness(2), String) ' message to whether treatments are differentiating based on stdev of pin sensors
+'  Sample (2, Pin_Soil_Message(2), String) ' message as to whether treatments are too high
+'  Sample (2, Pin_Soil_Eveness(2), String) ' message to whether treatments are differentiating based on stdev of pin sensors
+
+  Sample(9, Raw_Pin(), FP2)
+  Sample(9, Raw_Lag(), FP2)
+  Sample(9, Raw_Surface(), FP2)
+  Sample(9, Raw_Deep(), FP2)
+  Sample(9, Raw_Above(), FP2)
+  Sample(9, Raw_Air(), FP2)
+
+  StdDev(9, Raw_Pin(), FP2,0)
+  StdDev(9, Raw_Lag(), FP2,0)
+  StdDev(9, Raw_Surface(),FP2,0)
+  StdDev(9, Raw_Deep(), FP2,0)
+  StdDev(9, Raw_Above(),FP2,0)
+  StdDev(9, Raw_Air(), FP2,0)
+
+  Average(9, Surface_DC(),FP2,0 )
+  Average(9, Deep_DC(),FP2,0 )
+  Average(9, surface_duty(),FP2,0 )
+  Average(9, deep_duty(),FP2,0 )
+
+  Sample(9, Pin_code(), FP2)
+  Sample(9, Lag_code(), FP2)
+  Sample(9, Surface_code(), FP2)
+  Sample(9, Deep_code(), FP2)
+  Sample(9, Above_code(), FP2)
+  Sample(9, Air_code(), FP2)
+
+  Sample(9, Parse_Code(), FP2)
+  Sample (9, M_Temp_Pin(),FP2) 'pin slope
+  Sample (9, M_Temp_Surface(),FP2) 'surface sope
+  Sample (9, M_Temp_Lag(), FP2) 'lag slope
+  Sample (9, Proj_Temp_Pin(), FP2) '5 minute projection
+  Sample (9, Proj_Temp_Surface(), FP2) '5 minute projection
+  Sample (9, Proj_Delta_Temp_Pin(), FP2)
+  Sample (9, Proj_Delta_Temp_Surface(), FP2)
+  Sample(3, Temp_Pin_Dev(), FP2)
+  Sample(3, Temp_Surface_Dev(), FP2)
+EndTable
+
+'Main Program
+PreserveVariables' this statement allows logger to start in same mode as when it was shutoff.
+SequentialMode
+
+BeginProg
+  Register(-1,7)()= NAN
+  Register(-1,4)()= NAN
+  Register(-1,5)()= NAN
+  Register(-1,6)()= NAN
+  Register(-1,8)()= NAN
+  Register(-1,9)()= NAN
+  Register(-1,10)()= NAN
+
+  Target_Pin(1)=0
+  Target_Pin(2)=0
+  Target_Pin(3)=0
+  Target_Pin(4)=1.5
+  Target_Pin(5)=1.5
+  Target_Pin(6)=1.5
+  Target_Pin(7)=3.0
+  Target_Pin(8)=3.0
+  Target_Pin(9)=3.0
+
+  Target_Surface(1)=0
+  Target_Surface(2)=0
+  Target_Surface(3)=0
+  Target_Surface(4)=1.5
+  Target_Surface(5)=1.5
+  Target_Surface(6)=1.5
+  Target_Surface(7)=3.0
+  Target_Surface(8)=3.0
+  Target_Surface(9)=3.0
+
+  Scan (60,Sec,0,0)
+
+    STATNAME = Status.StationName(1,1)
+    Include "CPU:WSEA_vconfig5.CR1" ' constants and alias tables for updating
+    PanelTemp (PTemp,_50Hz)   '60 hz filter. Need to change for other power	Scan (5,Sec,0,0)
+    Battery (batt_volt)
+
+    'On/Off Flag control' FALSE is low or off , TRUE = high or on
+    ' Flag(1) = FALSE all off and will change all flags to 0 = total shutoff
+    ' Flag(2) = pin(deep)functioning
+    ' Flag(3) = surface functioning
+    ' Flag(4) = ARDUINO VARIABLE SEND
+
+    ' Flags(1-4) on for normal operation
+
+    ' Flag(5) = Suspend System Flag (for high water or high winds)
+    ' Flag(6) = Primer for start
+    ' Flag(7) =  Flex control
+    ' Flag(8) =
+    ' Flag(9)=
+    ' Flag(10)- Met table flag
+    ' 
+
+    ' Register variables SHARED BETWEEN ARDUINOS AND CR1000 via modbus commands
+    '1 address
+    '2 response code read
+    '3 response code write
+    ' included in actually register
+    '4 Pin temperature (Register (k,3)) ARD
+    '5 Lag temperature (Register (k,4)) ARD
+    '6 Surface temperature (Register (k,5)) ARD
+    '7 Deep temperature (Register (k,6))ARD
+    '8 Above temperature(Register (k,7))ARD
+    '9 Air temperature (Register (k,8))ARD
+    '10 Arduino Data Code (Register (k,9))ARD
+    '11 Duty Cycle Pin CS
+    '12 Duty Cycle Surface CS
+    '13 Campbell Control Code CS Code
+    '14 Pin_temp(1)CS
+    '15 Surface_Temp(1) CS
+    '16 Time Campbell CS
+
+    ' Arduino data codes- READ ERROR CODES FOR EACH PLOT (DIGIT> 2 is cause for concern)
+    ' ######1 = pin
+    ' #####1# = lag
+    ' ####1## = surface
+    ' ###1### = deep
+    ' ##1#### = above
+    ' #1##### = air
+
+
+    ' Arduino data code intrepretation
+    ' 0= alles gut!
+    ' 1= variability exists but in range!
+    ' 2= measurement variability high! NAN sensor
+    ' 3= sensor not reading field check! NAN sensor
+
+    '
+    If Flag(1)=0 Then
+      Flag(2)=0
+      Flag(3)=0
+      Flag(4)=0
+      CS_Code(1)=0
+    EndIf
+
+    If Flag(2)= 0 Then
+      deep_duty(1)= 0' Amb
+      deep_duty(2)= 0' Amb
+      deep_duty(3)= 0' Amb
+      deep_duty(4)= 0' TempL
+      deep_duty(5)= 0' TempL
+      deep_duty(6)= 0' TempL
+      deep_duty(7)= 0' TempH
+      deep_duty(8)= 0' TempH
+      deep_duty(9)= 0' TempH
+    EndIf
+
+    If Flag(3)= 0 Then
+      surface_duty(1)= 0' Amb
+      surface_duty(2)= 0' Amb
+      surface_duty(3)= 0' Amb
+      surface_duty(4)= 0' TempL
+      surface_duty(5)= 0' TempL
+      surface_duty(6)= 0' TempL
+      surface_duty(7)= 0' TempH
+      surface_duty(8)= 0' TempH
+      surface_duty(9)= 0' TempH
+    EndIf
+
+    ' CHECK TO TURN BACK ON.
+
+    If Flag(5)=TRUE Then ' kills heating for safety in high marsh and pioneer zone
+      Flag(2)=0
+      Flag(3)=0
+      Flag(4)=0
+    EndIf
+
+    If Flag(6)= TRUE Then ' check if this will work FOR SLOW START/ USE WHEN TREATMENTS HAVE BEEN RUNNING BUT POWER IS OFF.
+      Surface_DC(1)= .2' Amb
+      Surface_DC(2)= .2' Amb
+      Surface_DC(3)= .2' Amb
+      Surface_DC(4)= .2' TempL
+      Surface_DC(5)= .2' TempL
+      Surface_DC(6)= .2' TempL
+      Surface_DC(7)= .2' TempH
+      Surface_DC(8)= .2' TempH
+      Surface_DC(9)= .2' TempH
+
+      Deep_DC(1)= .2' Amb
+      Deep_DC(2)= .2' Amb
+      Deep_DC(3)= .2' Amb
+      Deep_DC(4)= .2' TempL
+      Deep_DC(5)= .2' TempL
+      Deep_DC(6)= .2' TempL
+      Deep_DC(7)= .2' TempH
+      Deep_DC(8)= .2' TempH
+      Deep_DC(9)= .2' TempH
+    EndIf
+
+
+    ' CScode is variable mode to arduino!
+    ' Deep On/Surface Off
+    If Flag(2)=-1 AND Flag(3)=0 AND Flag(4)=-1 Then
+      CS_Code(1) =1
+    EndIf
+    ' Deep Off/Surface On
+    If Flag(2)=0 AND Flag(3)=-1 AND Flag(4)=-1 Then
+      CS_Code(1) =2
+    EndIf
+    'normal mode
+    If Flag(2)=-1 AND Flag(3)=-1 AND Flag(4)=-1 AND Flag(7)=0  Then
+      CS_Code(1) =3
+    EndIf
+    ' expanded independent plot control
+    If Flag(2)=-1 AND Flag(3)=-1 AND Flag(4)=-1 AND Flag(7)=-1 Then
+      CS_Code(1) =4
+    EndIf
+
+    SerialOpen(Com3,9600,3,5,1000)
+    For k = 1 To 9
+      ModbusMaster (Register(k,2),Com3,9600,Register(k,1),3,Register(k,4),1,7,2,100,2)
+      ModbusMaster (Register(k,3),Com3,9600,Register(k,1),16,Register(k,11),15,6,2,100,2)
+    Next k
+    SerialFlush(Com3)
+
+
+ For k = 1 To 9
+ '     IfTime(0,6,hr)
+  '    ReadErrors(k)= 0
+   '   If Register (k,2) > 1
+'        ReadErrors(k)= 1 + ReadErrors(k)
+'      EndIf
+'
+'      IfTime(0,6,hr)
+'        WriteErrors(k)= 0
+'       If Register (k,3) > 1
+'        WriteErrors(k)= 1 + WriteErrors(k)
+'      EndIf
+
+      If Register (k,2) > 5
+        Register(k,4)= NAN
+        Register(k,5)= NAN
+        Register(k,6)= NAN
+        Register(k,7)= NAN
+        Register(k,8)= NAN
+        Register(k,9)= NAN
+        Register(k,10)= NAN
+        Register(k,11)= NAN
+      EndIf
+
+      If Register(k,4)= 0 AND Register(k,5)= 0
+        Register(k,4)= NAN
+        Register(k,5)= NAN
+        Register(k,6)= NAN
+        Register(k,7)= NAN
+        Register(k,8)= NAN
+        Register(k,9)= NAN
+        Register(k,10)= NAN
+        Register(k,11)= NAN
+      EndIf
+    Next k
+    
+'Sensor Diagnostics Reads Codes from Arduino Code
+    'Code divides 7 digit number into successive samller numbers and fractional remains becomes code For sesnors: 0 is normal operation- 1 is warning -2 is NAN based on Arduino
+
+    For k = 1 To 9
+      Parse_Code(k) =INT(Arduino_Code(k))
+      Parse_Code(k)= Parse_Code(k)/10
+      Pin_code(k)= INT(FRAC(Parse_Code(k))*10)
+      Parse_Code(k)= Parse_Code(k)/10
+      Lag_code(k)=INT(FRAC(Parse_Code(k))*10)
+      Parse_Code(k)= Parse_Code(k)/10
+      Surface_code(k)=INT(FRAC(Parse_Code(k))*10)
+      Parse_Code(k)= Parse_Code(k)/10
+      Deep_code(k)= INT(FRAC(Parse_Code(k))*10)
+      Parse_Code(k)= Parse_Code(k)/10
+      Above_code(k)=INT(FRAC(Parse_Code(k))*10)
+      Parse_Code(k)= Parse_Code(k)/10
+      Air_code(k)=INT(FRAC(Parse_Code(k))*10)
+    Next k
+
+    'ERROR CODING
+    For k = 1 To 9
+      If Pin_code(k) < 3 Then Pin(k)=Raw_Pin(k) Else Pin(k)= NAN
+      If ABS(Pin(k)) > 55 Then Pin(k) = NAN' out of range values
+      'If Control.raw_pin_std(k,1)> 2 Then Pin(k) = NAN
+      If Pin_nan(k) = 999 Then Pin(k)= NAN
+      ' command allows control to disentangle any sensor from feeback loop enter value for NANcode = 999
+    Next k
+
+    For k = 1 To 9
+      If Lag_code(k) < 3 Then Lag(k)=Raw_Lag(k) Else Lag(k)= NAN
+      If ABS(Lag(k)) > 55 Then Lag(k) = NAN' out of range values
+      'If Control.raw_lag_std(k,1)> 2 Then lag(k) = NAN
+      If Lag_nan(k) = 999 Then Lag(k)= NAN
+      ' command allows control to disentangle any sensor from feeback loop, enter value for NANcode = 999
+    Next k
+
+    For k = 1 To 9
+      If Surface_code(k) < 3 Then Surface(k)=Raw_Surface(k) Else Surface(k)= NAN
+      If ABS(Surface(k)) > 55 Then Surface(k) = NAN' out of range values
+      'If Control.raw_surface_std(k,1)> 2 Then surface(k) = NAN
+      If Surface_nan(k) = 999 Then Surface(k)= NAN
+      ' command allows control to disentangle any sensor from feeback loop, enter value for NANcode = 999
+    Next k
+
+    For k = 1 To 9
+      If Above_code(k) < 3 Then Above(k)=Raw_Above(k) Else Above(k)= NAN
+      If ABS(Above(k)) > 55 Then Above(k) = NAN' out of range values
+      'If Control.raw_above_std(k,1)> 2 Then above(k) = NAN
+      If Above_nan(k) = 999 Then Above(k)= NAN
+      ' command allows control to disentangle any sensor from feeback loop, enter value for NANcode = 999
+    Next k
+
+    For k = 1 To 9
+      If Deep_code(k) < 3 Then Deep(k)=Raw_Deep(k) Else Deep(k)= NAN
+      If ABS(Deep(k)) > 55 Then Deep(k) = NAN' out of range values
+      'If Control.raw_deep_std(k,1)> 2 Then deep(k) = NAN
+      If Deep_nan(k) = 999 Then Deep(k)= NAN
+      ' command allows control to disentangle any sensor from feeback loop, enter value for NANcode = 999
+    Next k
+
+    For k = 1 To 9
+      If Air_code(k) < 3 Then Air(k)=Raw_Air(k) Else Air(k)= NAN
+      If ABS(Air(k)) > 55 Then Air(k) = NAN' out of range values
+      'If Control.raw_air_std(k,1)> 2 Then air(k) = NAN
+      If Air_nan(k) = 999 Then Air(k)= NAN
+      ' command allows control to disentangle any sensor from feeback loop, enter value for NANcode = 999
+    Next k
+
+    Time_CS = Public.TimeStamp(1,1) + UTC_OFFSET + EPOCH_OFFSET
+
+    ' Treatment Averages
+    ' Pin
+
+    AvgSpa (Temp_Pin(1), 3, Pin(1)) 'spatial average of ambient thermocouples
+    AvgSpa (Temp_Pin(2), 3, Pin(4)) 'spatial average of TempL thermocouples
+    AvgSpa (Temp_Pin(3), 3, Pin(7)) 'spatial average of TempH thermocouples
+
+    'Lag
+    AvgSpa (Temp_Lag(1), 3, Lag(1)) 'spatial average of ambient thermocouples
+    AvgSpa (Temp_Lag(2), 3, Lag(4)) 'spatial average of TempL thermocouples
+    AvgSpa (Temp_Lag(3), 3, Lag(7)) 'spatial average of TempH thermocouples
+
+    'Surface
+    AvgSpa (Temp_Surface(1), 3, Surface(1)) 'spatial average of ambient thermocouples
+    AvgSpa (Temp_Surface(2), 3, Surface(4)) 'spatial average of TempL thermocouples
+    AvgSpa (Temp_Surface(3), 3, Surface(7)) 'spatial average of TempH thermocouples
+
+    'Above
+    AvgSpa (Temp_Above(1), 3, Above(1)) 'spatial average of ambient thermocouples
+    AvgSpa (Temp_Above(2), 3, Above(4)) 'spatial average of TempL thermocouples
+    AvgSpa (Temp_Above(3), 3, Above(7)) 'spatial average of TempH thermocouples
+
+    'Air
+    AvgSpa (Temp_Air(1), 3, Air(1)) 'spatial average of ambient thermocouples
+    AvgSpa (Temp_Air(2), 3, Air(4)) ''spatial average of TempL thermocouples
+    AvgSpa (Temp_Air(3), 3, Air(7)) 'spatial average of TempH thermocouples
+
+    'Deep
+    AvgSpa (Temp_Deep(1), 3, Deep(1)) 'spatial average of ambient thermocouples
+    AvgSpa (Temp_Deep(2), 3, Deep(4)) 'spatial average of TempL thermocouples
+    AvgSpa (Temp_Deep(3), 3, Deep(7)) 'spatial average of TempH thermocouples
+
+    ' running averages
+    AvgRun (PinR(), 9, Pin(),3) 'spatial average of ambient thermocouples
+    AvgRun (LagR(), 9, Lag(),3) 'spatial average of ambient thermocouples
+    AvgRun (SurfaceR(), 9, Surface(),3) 'spatial average of ambient thermocouples
+    AvgRun (DeepR(), 9, Deep(),3) 'spatial average of ambient thermocouples
+    AvgRun (AboveR(), 9, Above(),3) 'spatial average of ambient thermocouples
+    AvgRun (AirR(), 9, Air(),3) 'spatial average of ambient thermocouples
+
+
+    ' For eveness metrics
+    'Pin
+    StdDevSpa (Temp_Pin_Dev(1), 3, Pin(1)) 'spatial avarage of ambient thermocouples
+    StdDevSpa (Temp_Pin_Dev(2), 3, Pin(4)) 'spatial avarage of ambient thermocouples
+    StdDevSpa (Temp_Pin_Dev(3), 3, Pin(7)) 'spatial avarage of ambient thermocouples
+
+    'Surface
+    StdDevSpa (Temp_Surface_Dev(1), 3, Surface(1)) 'spatial avarage of ambient thermocouples
+    StdDevSpa (Temp_Surface_Dev(2), 3, Surface(4)) 'spatial avarage of ambient thermocouples
+    StdDevSpa (Temp_Surface_Dev(3), 3, Surface(7)) 'spatial avarage of ambient thermocouples
+
+    ' Soils Heating Warning Flags:
+
+    For k = 1 To 3
+
+      If Temp_Pin_Dev(k) <= 1.5 Then Pin_Soil_Eveness(k) = "OKAY" Else Pin_Soil_Eveness(k) ="CHECK EVENESS" ' check value
+
+      If Temp_Surface_Dev(k) <= 1.5 Then Surface_Soil_Eveness(k) = "OKAY" Else Surface_Soil_Eveness(k) ="CHECK EVENESS"
+    Next k
+
+    For k = 1 To 9
+      Pin_Soil_Check(k)= Delta_Temp_Pin(k)-Target_Pin(k)
+
+      If Export.Pin_soil_check_Avg(k)< 0.5 AND Export.Pin_soil_check_Avg(k)> -0.5 Then Pin_Soil_Message(k) = "OKAY"
+      If Export.Pin_soil_check_Avg(k)<= -0.5  Then Pin_Soil_Message(k) = "LOW or OFF"
+      If Export.Pin_soil_check_Avg(k)<= 3.0 AND Export.Pin_soil_check_Avg(k)>= 0.5 Then Pin_Soil_Message(k) = "HIGH"
+      If Export.Pin_soil_check_Avg(k)> 3.0 Then Pin_Soil_Message(k) = "WARNING VERY HIGH"
+    Next k
+
+    For k = 1 To 9
+      Surface_Soil_Check(k)= Delta_Temp_Surface(k)-Target_Surface(k)
+
+      If Export.Surface_soil_check_Avg(k)< 0.5 AND Export.Surface_soil_check_Avg(k)> -0.5 Then Surface_Soil_Message(k) = "OKAY"
+      If Export.Surface_soil_check_Avg(k)<= -0.5  Then Surface_Soil_Message(k) = "LOW or OFF"
+      If Export.Surface_soil_check_Avg(k) <= 3.0 AND Export.Surface_soil_check_Avg(k)>= 0.5 Then Surface_Soil_Message(k) = "HIGH"
+      If Export.Surface_soil_check_Avg(k)> 3.0 Then Surface_Soil_Message(k) = "WARNING VERY HIGH"
+    Next k
+
+    For k= 1 To 9
+      ' slopes per minute of temperature over ~6 minutes
+      M_Temp_Pin(k)= (PinR(k) - Control.Pin(k,3))/6
+      M_Temp_Surface(k)= (SurfaceR(k) - Control.Surface(k,3))/6
+      M_Temp_Lag(k)= (LagR(k) - Control.Lag(k,3))/6
+      ' projects slopes into future 6 minutes
+      Proj_Temp_Pin(k) = PinR(k) + (M_Temp_Pin(k) * 5 ) '5 minute projection
+      Proj_Temp_Surface(k) = SurfaceR(k) + (M_Temp_Surface(k) * 5) '5 minute projection
+    Next k
+
+    AvgSpa (Proj_Amb_Temp_Pin(), 3, Proj_Temp_Pin(1)) 'spatial average of ambient thermocouples
+    AvgSpa (Proj_Amb_Temp_Surface(), 3, Proj_Temp_Surface(1)) 'spatial average of ambient thermocouples
+
+    For k = 1 To 9
+      Delta_Temp_Pin(k)= PinR(k)-Temp_Pin(1)
+      Delta_Temp_Lag(k)= LagR(k)-Temp_Lag(1)
+      Delta_Temp_Surface(k)= SurfaceR(k)-Temp_Surface(1)
+      Delta_Temp_Deep(k)= DeepR(k)-Temp_Deep(1)
+      Delta_Temp_Above(k)= AboveR(k)-Temp_Above(1)
+      Delta_Temp_Air(k)= AirR(k)-Temp_Air(1)
+
+      Proj_Delta_Temp_Pin(k) = Proj_Temp_Pin(k)-Proj_Amb_Temp_Pin' projected difference
+      Proj_Delta_Temp_Surface(k) = Proj_Temp_Surface(k)-Proj_Amb_Temp_Surface' projected difference
+    Next k
+
+
+    For k = 1 To 9
+      ' projected deltas
+      Target_Delta_Pin(k) = Target_Pin(k)- Proj_Delta_Temp_Pin(k)
+      Target_Dev_Pin(k)= (Target_Pin(k)- Proj_Delta_Temp_Pin(k))/ Target_Pin(k) 'proportional diference
+
+      Target_Delta_Surface(k) = Target_Surface(k)- Proj_Delta_Temp_Surface(k)
+      Target_Dev_Surface(k)= (Target_Surface(k)- Proj_Delta_Temp_Surface(k))/ Target_Surface(k) 'proportional diference
+
+      ' Target deviation and delta determine far from experimental target for each plot
+      ' negative Target number = over target
+      ' positive Target number = under target
+
+      If Proj_Delta_Temp_Pin(k) ="NAN" Then Proj_Delta_Temp_Pin(k) = Delta_Temp_Pin(k)
+      If Proj_Delta_Temp_Surface(k) ="NAN" Then Proj_Delta_Temp_Surface(k) = Delta_Temp_Surface(k)
+
+      'If Target_Dev_Pin(k) > 1 Then Target_Dev_Pin(k) = 1
+      'If Target_Dev_Pin(k)< -1 Then Target_Dev_Pin(k)= -1
+      If Target_Dev_Pin(k)= "INF" Then Target_Dev_Pin(k) = 0
+
+      'If Target_Dev_Surface(k) > 1 Then Target_Dev_Surface(k) = 1
+      'If Target_Dev_Surface(k)< -1 Then Target_Dev_Surface(k)= -1
+      If Target_Dev_Surface(k)= "INF" Then Target_Dev_Surface(k) = 0
+
+      Deep_DC_prev(k)= Deep_DC(k)
+      If Deep_DC_prev(k) = "NAN" Then Deep_DC_prev(k) = Target_Dev_Pin(k)
+
+      Surface_DC_prev(k)= Surface_DC(k)
+      If Surface_DC_prev(k) = "NAN" Then Surface_DC_prev(k) = Target_Dev_Surface(k)
+
+      ' what happens when deviation is negative
+      '0.0001% deviation
+
+      'Deeper Soils
+
+      If Target_Dev_Pin(k) >= 0.00 Then  ' under target
+        Deep_DC(k) = (Target_Dev_Pin(k) * 0.02)+ Deep_DC_prev(k)
+      EndIf
+      ' how many cycles to go up and down... every 10 seconds may need to be adjusted for soils
+
+      If Target_Dev_Pin(k) < 0.00 Then ' over target
+        Deep_DC(k) = (Target_Dev_Pin(k) * 0.05)+ Deep_DC_prev(k)
+      EndIf
+
+      ' how many cycles to go up and down...every 10 seconds may need to be adjusted for soils
+
+      If Deep_DC(k) > 0.6 Then Deep_DC(k) = 0.6 ' limits to 0.6 capacity' (60% of voltage)
+      If Deep_DC(k) < 0.000 Then Deep_DC(k) = 0.000
+
+      ' Surface Soils
+      If Target_Dev_Surface(k) >= 0.00 Then  ' under target
+        Surface_DC(k) = (Target_Dev_Surface(k) * 0.02)+ Surface_DC_prev(k)
+      EndIf
+      ' how many cycles to go up and down... every 10 seconds may need to be adjusted for soils
+
+      If Target_Dev_Surface(k) < 0.00 Then ' over target
+        Surface_DC(k) = (Target_Dev_Surface(k) * 0.05)+ Surface_DC_prev(k)
+      EndIf
+
+      ' how many cycles to go up and down...every 10 seconds may need to be adjusted for soils
+
+      If Surface_DC(k) > Surface_DC_limit Then Surface_DC(k) = Surface_DC_limit ' limits to 0.6 capacity' (60% of voltage)
+      If Surface_DC(k) < 0.000 Then Surface_DC(k) = 0.000
+
+    Next k
+
+    If Flag(4)= TRUE Then' power arduino modules
+      For k = 1 To 9
+        ' Above
+        surface_duty(k)= Round(Surface_DC(k) *100000,0)'
+        deep_duty(k)= Round(Deep_DC(k) *100000,0) '
+        If deep_duty(k) > 0 AND deep_duty(k) < 10000 Then deep_duty(k) = 10000' keeps from short cycling for transformers
+      Next k
+    EndIf
+
+    ' Water level code
+    For k = 1 To 3
+      If Level_cm(1) > Surface_Level_cm(k) Then ' THIS TURNS OFF HEATING SYSTEM UNTIL MANUAL RESET AFTER 33mph winds.
+        Level_message = "Tide over plots"
+        Surface_DC_limit = 0.4
+      Else
+         Level_message = "Tide below plots"
+        Surface_DC_limit = 0.25
+      EndIf
+    Next k
+
+    If Level_cm(1) > 300  Then ' THIS TURNS OFF HEATING SYSTEM UNTIL MANUAL RESET ' changed to 300 cm for beginning of 2019
+      Level_message = "VERY HIGH WATER"
+      Flag(5)=TRUE
+
+    EndIf
+
+
+
+    ' Windspeed thresholds Change to elevation markers and Add message codes
+    If Public.Wind_Speed > 10 Then ' THIS TURNS OFF HEATING SYSTEM UNTIL MANUAL RESET AFTER 33mph winds.
+      Wind_message = "Moderate Winds Warning"
+
+    ElseIf Public.Wind_Speed > 20 Then  ' THIS TURNS OFF HEATING SYSTEM UNTIL MANUAL RESET AFTER 33mph winds.
+      Wind_message = "High Winds Warning"
+      'Flag(5)=TRUE
+
+    Else
+      Wind_message = "Low Winds"
+    EndIf
+
+    'For k = 1 To 9
+    'IfTime(0,15,min)
+    'ReadErrors(k)=0
+    'WriteErrors(k)=0
+    'Next(k)
+
+    ' new testcode for NDVIsesnor network
+IfTime(0,15,min)
+PortSet(9,1)
+Delay (0,500,msec)
+
+If STATNAME = "HIGHMARSH" Then
+   SDI12Recorder(NDVI_J(1),3,"J","M!",1,0)
+EndIf
+   SDI12Recorder(NDVI_A(1),3,"A","M!",1,0)
+   SDI12Recorder(NDVI_B(1),3,"B","M!",1,0)
+   SDI12Recorder(NDVI_C(1),3,"C","M!",1,0)
+   SDI12Recorder(NDVI_D(1),3,"D","M!",1,0)
+   SDI12Recorder(NDVI_E(1),3,"E","M!",1,0)
+   SDI12Recorder(NDVI_F(1),3,"F","M!",1,0)
+   SDI12Recorder(NDVI_G(1),3,"G","M!",1,0)
+   SDI12Recorder(NDVI_H(1),3,"H","M!",1,0)
+   SDI12Recorder(NDVI_I(1),3,"I","M!",1,0)
+PortSet(9,0)
+
+    Select Case STATNAME
+    Case "HIGHMARSH"
+
+      Flag(10) = TRUE
+      SDI12Recorder(CS456(1),7, 0,"CC3!",1,0)
+      Level_cm(1) = CS456(1)* 10' ' cm sea water
+
+      ''Code for Gill measurements:
+      'Note: Unavailable measurements shall be "padded", e.g.: +999.99.
+      '?! Returns Unit Address (default Is 0, address set to 3).
+      'a Current unit address letter (factory default Is 0, address set to 3).
+      'b New address letter, range 0 To 9.
+      'aAb! Change unit address from a To b see above.
+      'aM1! Address, Temperature, Relative Humidity, DewPoint, Pressure AND Status.
+      'aM2! Address, Relative Wind Direction, Relative Wind Speed and Status.
+      'aM3! Address, Precipitation Intensity (Rain), Total Precipitation (Rain), Status.
+      'aD0! Request a line of the Above data.
+
+      GillAirtemp = Gill600(1)'Temperature
+      RH = Gill600(2)'Relative Humidity
+      Dewpt = Gill600(3)'DewPoint
+      BP = Gill600(4)' Barometric Pressure'Pressure
+      Status(1)= Gill600(5)
+      Wind_Direction = Gill600(6)' Relative Wind Direction,
+      Wind_Speed = Gill600(7)' Relative Wind Speed
+      Status(2)= Gill600(8)
+      Rain = Gill600(9)'Precipitation Intensity (Rain),
+      Tot_Rain = Gill600(10) ' Total Precipitation (Rain),
+      Status(3)= Gill600(11)
+
+      SDI12Recorder(Gill600(1),1,3,"M1!",1,0)
+      SDI12Recorder(Gill600(6),1,3,"M2!",1,0)
+      SDI12Recorder(Gill600(9),1,3,"M3!",1,0)
+
+      '    '    If RH>100 AND RH<108 Then RH=100
+      VaporPressure (VP, GillAirtemp, RH)
+
+      '    'See: Murray FW (1967) On the computation of saturation vapor pressure. J. Appl. Meteorol. 6: 203-204.
+      '    'Monteith JL, Unsworth MH (1990) Principles of environmental physics. Arnold.
+      '    'SVP (Pascals) = 610.7*107.5T/(237.3+T)
+      '
+      SVP = (610.7*(107.5*GillAirtemp)/(237.3 + GillAirtemp))/1000 ' Saturate Vapor Pressure
+      VPD = (1 - (RH/100))*SVP ' Vapor Pressure Deficit
+
+
+      'LI190R Quantum Sensor measurements PAR_Tot and PAR_Den:
+      VoltDiff(PAR_Den,1,mV25,1,True,0,_50Hz,1,0) 'Use 20 mV range for CR3000, CR5000
+      'Set negative values to zero
+      If PAR_Den<0 Then PAR_Den=0
+      PAR_Tot= PAR_Den* PAR1
+      PAR_Den= PAR_Den* PAR2 'Multipliers will differ for each sensor and scan rate
+
+      ' LI200RX Pyranmeter
+      VoltDiff(SlrW,1,mV7_5,2,True,0,_50Hz,1,0) 'use 20mV range for
+
+      If SlrW<0 Then SlrW=0
+      ' convert mV to MJ/m2 for 10 second execution interval
+      ' t • 0.0002  = 39 *.0002 =
+      SlrMJ=SlrW*0.006
+      'convert mV to W/m2
+      SlrW=SlrW*200.0
+
+
+    Case "LOWMARSH"
+      'ADD VARIABLE SHARING
+      IfTime(0, 5, min)
+      GetVariables(RXResponse(1),ComSDC7,0,3,0,0,"Public","Wind_Speed",Wind_Speed,1)'$$$$ Get Average windspeed
+      'EndIf
+
+      IfTime(1, 5, min)
+      GetVariables(RXResponse(2),ComSDC7,0,2,0,0,"Public","Level_cm",Level_cm,1)'$$$$ Get Average windspeed
+      'EndIf
+
+    Case "PIONEER"
+      Flag(10) = TRUE
+      SDI12Recorder(CS456(1),7, 0,"CC3!",1,0)
+      Level_cm(1) = CS456(1)* 10' ' cm sea water
+
+      'LI190R Quantum Sensor measurements PAR_Tot and PAR_Den:
+      VoltDiff(PAR_Den,1,mV25,1,True,0,_50Hz,1,0) 'Use 20 mV range for CR3000, CR5000
+      'Set negative values to zero
+      If PAR_Den<0 Then PAR_Den=0
+      PAR_Tot= PAR_Den* PAR1
+      PAR_Den= PAR_Den* PAR2 'Multipliers will differ for each sensor and scan rate
+
+      IfTime(0, 5, min)
+      GetVariables(RXResponse(1),ComSDC7,0,3,0,0,"Public","Wind_Speed",Wind_Speed,1)'$$$$ Get Average windspeed
+      'EndIf
+
+    EndSelect
+
+    CallTable Export
+    CallTable Control
+    CallTable MET
+    CallTable NDVI
+    CallTable NDVI2
+
+  NextScan
+EndProg
+

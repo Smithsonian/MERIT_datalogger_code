@@ -1,0 +1,121 @@
+'CR1000 Series Datalogger
+'Configuration file for 
+'Feedback control warming experiment for WSEA experiment loggers
+'program author: Roy Rich 3/2018 rev 
+
+'CONFIG FILE THAT ORGANIZES FEEDS SAURON WITH NECESSARY POWER TO RULE THEM ALL
+' revised on 4/19/2018
+ 
+Select Case STATNAME
+' THIS PROVIDES CODING FOR NEW MULTIPLEXERS TO OLD SYSTEM AND GIVES MULTIPLEXER WIRING CONFIGURATIONS
+Case "HIGHMARSH"
+  'highmarsh
+  '1210 xbee pakbus 3
+Register(1,1) = 70 : sl_id(1)= Register(1,1): raw_pin(1)= Register(1,4) : raw_lag(1)=Register(1,5) : raw_surface(1)= Register(1,6) : raw_deep(1)= Register(1,7) : raw_above(1)= Register(1,8) : raw_air(1)= Register(1,9) : Arduino_Code(1)= Register(1,10) 
+Register(2,1) = 80 : sl_id(2)= Register(2,1): raw_pin(2)= Register(2,4) : raw_lag(2)=Register(2,5) : raw_surface(2)= Register(2,6) : raw_deep(2)= Register(2,7) : raw_above(2)= Register(2,8) : raw_air(2)= Register(2,9) : Arduino_Code(2)= Register(2,10) 
+Register(3,1) = 90 : sl_id(3)= Register(3,1): raw_pin(3)= Register(3,4) : raw_lag(3)=Register(3,5) : raw_surface(3)= Register(3,6) : raw_deep(3)= Register(3,7) : raw_above(3)= Register(3,8) : raw_air(3)= Register(3,9) : Arduino_Code(3)= Register(3,10)
+Register(4,1) = 71 : sl_id(4)= Register(4,1): raw_pin(4)= Register(4,4) : raw_lag(4)=Register(4,5) : raw_surface(4)= Register(4,6) : raw_deep(4)= Register(4,7) : raw_above(4)= Register(4,8) : raw_air(4)= Register(4,9) : Arduino_Code(4)= Register(4,10)
+Register(5,1) = 81 : sl_id(5)= Register(5,1): raw_pin(5)= Register(5,4) : raw_lag(5)=Register(5,5) : raw_surface(5)= Register(5,6) : raw_deep(5)= Register(5,7) : raw_above(5)= Register(5,8) : raw_air(5)= Register(5,9) : Arduino_Code(5)= Register(5,10)
+Register(6,1) = 91 : sl_id(6)= Register(6,1): raw_pin(6)= Register(6,4) : raw_lag(6)=Register(6,5) : raw_surface(6)= Register(6,6) : raw_deep(6)= Register(6,7) : raw_above(6)= Register(6,8) : raw_air(6)= Register(6,9) : Arduino_Code(6)= Register(6,10)
+Register(7,1) = 72 : sl_id(7)= Register(7,1): raw_pin(7)= Register(7,4) : raw_lag(7)=Register(7,5) : raw_surface(7)= Register(7,6) : raw_deep(7)= Register(7,7) : raw_above(7)= Register(7,8) : raw_air(7)= Register(7,9) : Arduino_Code(7)= Register(7,10)
+Register(8,1) = 82 : sl_id(8)= Register(8,1): raw_pin(8)= Register(8,4) : raw_lag(8)=Register(8,5) : raw_surface(8)= Register(8,6) : raw_deep(8)= Register(8,7) : raw_above(8)= Register(8,8) : raw_air(8)= Register(8,9) : Arduino_Code(8)= Register(8,10)
+Register(9,1) = 92 : sl_id(9)= Register(9,1): raw_pin(9)= Register(9,4) : raw_lag(9)=Register(9,5) : raw_surface(9)= Register(9,6) : raw_deep(9)= Register(9,7) : raw_above(9)= Register(9,8) : raw_air(9)= Register(9,9) : Arduino_Code(9)= Register(9,10) 
+
+Register(1,16) = Time_CS(1): Register(1,11) = deep_duty(1):Register(1,12) = surface_duty(1): Register(1,13) = CS_Code(1): Register(1,14) = temp_pin(1): Register(1,15) = temp_surface(1)
+Register(2,16) = Time_CS(1): Register(2,11) = deep_duty(2):Register(2,12) = surface_duty(2): Register(2,13) = CS_Code(1): Register(2,14) = temp_pin(1): Register(2,15) = temp_surface(1)
+Register(3,16) = Time_CS(1): Register(3,11) = deep_duty(3):Register(3,12) = surface_duty(3): Register(3,13) = CS_Code(1): Register(3,14) = temp_pin(1): Register(3,15) = temp_surface(1)
+Register(4,16) = Time_CS(1): Register(4,11) = deep_duty(4):Register(4,12) = surface_duty(4): Register(4,13) = CS_Code(1): Register(4,14) = temp_pin(2): Register(4,15) = temp_surface(2)
+Register(5,16) = Time_CS(1): Register(5,11) = deep_duty(5):Register(5,12) = surface_duty(5): Register(5,13) = CS_Code(1): Register(5,14) = temp_pin(2): Register(5,15) = temp_surface(2)
+Register(6,16) = Time_CS(1): Register(6,11) = deep_duty(6):Register(6,12) = surface_duty(6): Register(6,13) = CS_Code(1): Register(6,14) = temp_pin(2): Register(6,15) = temp_surface(2)
+Register(7,16) = Time_CS(1): Register(7,11) = deep_duty(7):Register(7,12) = surface_duty(7): Register(7,13) = CS_Code(1): Register(7,14) = temp_pin(3): Register(7,15) = temp_surface(3)
+Register(8,16) = Time_CS(1): Register(8,11) = deep_duty(8):Register(8,12) = surface_duty(8): Register(8,13) = CS_Code(1): Register(8,14) = temp_pin(3): Register(8,15) = temp_surface(3)
+Register(9,16) = Time_CS(1): Register(9,11) = deep_duty(9):Register(9,12) = surface_duty(9): Register(9,13) = CS_Code(1): Register(9,14) = temp_pin(3): Register(9,15) = temp_surface(3)
+
+PAR1 = 7.457779 ' Q104039 - 30 SEC INTERVAL - HIGHMARSH
+PAR2 = 248.59'
+
+Surface_Level_cm(1)= 140
+Surface_Level_cm(2)= 140
+Surface_Level_cm(3)= 140
+
+Case "PIONEER"
+'4607 xbee, pakbus 2
+'pioneer
+Register(1,1) = 10 : sl_id(1)= Register(1,1): raw_pin(1)= Register(1,4) : raw_lag(1)=Register(1,5) : raw_surface(1)= Register(1,6) : raw_deep(1)= Register(1,7) : raw_above(1)= Register(1,8) : raw_air(1)= Register(1,9) : Arduino_Code(1)= Register(1,10) 
+Register(2,1) = 20 : sl_id(2)= Register(2,1): raw_pin(2)= Register(2,4) : raw_lag(2)=Register(2,5) : raw_surface(2)= Register(2,6) : raw_deep(2)= Register(2,7) : raw_above(2)= Register(2,8) : raw_air(2)= Register(2,9) : Arduino_Code(2)= Register(2,10) 
+Register(3,1) = 30 : sl_id(3)= Register(3,1): raw_pin(3)= Register(3,4) : raw_lag(3)=Register(3,5) : raw_surface(3)= Register(3,6) : raw_deep(3)= Register(3,7) : raw_above(3)= Register(3,8) : raw_air(3)= Register(3,9) : Arduino_Code(3)= Register(3,10)
+Register(4,1) = 11 : sl_id(4)= Register(4,1): raw_pin(4)= Register(4,4) : raw_lag(4)=Register(4,5) : raw_surface(4)= Register(4,6) : raw_deep(4)= Register(4,7) : raw_above(4)= Register(4,8) : raw_air(4)= Register(4,9) : Arduino_Code(4)= Register(4,10)
+Register(5,1) = 21 : sl_id(5)= Register(5,1): raw_pin(5)= Register(5,4) : raw_lag(5)=Register(5,5) : raw_surface(5)= Register(5,6) : raw_deep(5)= Register(5,7) : raw_above(5)= Register(5,8) : raw_air(5)= Register(5,9) : Arduino_Code(5)= Register(5,10)
+Register(6,1) = 31 : sl_id(6)= Register(6,1): raw_pin(6)= Register(6,4) : raw_lag(6)=Register(6,5) : raw_surface(6)= Register(6,6) : raw_deep(6)= Register(6,7) : raw_above(6)= Register(6,8) : raw_air(6)= Register(6,9) : Arduino_Code(6)= Register(6,10)
+Register(7,1) = 12 : sl_id(7)= Register(7,1): raw_pin(7)= Register(7,4) : raw_lag(7)=Register(7,5) : raw_surface(7)= Register(7,6) : raw_deep(7)= Register(7,7) : raw_above(7)= Register(7,8) : raw_air(7)= Register(7,9) : Arduino_Code(7)= Register(7,10)
+Register(8,1) = 22 : sl_id(8)= Register(8,1): raw_pin(8)= Register(8,4) : raw_lag(8)=Register(8,5) : raw_surface(8)= Register(8,6) : raw_deep(8)= Register(8,7) : raw_above(8)= Register(8,8) : raw_air(8)= Register(8,9) : Arduino_Code(8)= Register(8,10)
+Register(9,1) = 32 : sl_id(9)= Register(9,1): raw_pin(9)= Register(9,4) : raw_lag(9)=Register(9,5) : raw_surface(9)= Register(9,6) : raw_deep(9)= Register(9,7) : raw_above(9)= Register(9,8) : raw_air(9)= Register(9,9) : Arduino_Code(9)= Register(9,10) 
+
+Register(1,16) = Time_CS(1): Register(1,11) = deep_duty(1):Register(1,12) = surface_duty(1): Register(1,13) = CS_Code(1): Register(1,14) = temp_pin(1): Register(1,15) = temp_surface(1)
+Register(2,16) = Time_CS(1): Register(2,11) = deep_duty(2):Register(2,12) = surface_duty(2): Register(2,13) = CS_Code(1): Register(2,14) = temp_pin(1): Register(2,15) = temp_surface(1)
+Register(3,16) = Time_CS(1): Register(3,11) = deep_duty(3):Register(3,12) = surface_duty(3): Register(3,13) = CS_Code(1): Register(3,14) = temp_pin(1): Register(3,15) = temp_surface(1)
+Register(4,16) = Time_CS(1): Register(4,11) = deep_duty(4):Register(4,12) = surface_duty(4): Register(4,13) = CS_Code(1): Register(4,14) = temp_pin(2): Register(4,15) = temp_surface(2)
+Register(5,16) = Time_CS(1): Register(5,11) = deep_duty(5):Register(5,12) = surface_duty(5): Register(5,13) = CS_Code(1): Register(5,14) = temp_pin(2): Register(5,15) = temp_surface(2)
+Register(6,16) = Time_CS(1): Register(6,11) = deep_duty(6):Register(6,12) = surface_duty(6): Register(6,13) = CS_Code(1): Register(6,14) = temp_pin(2): Register(6,15) = temp_surface(2)
+Register(7,16) = Time_CS(1): Register(7,11) = deep_duty(7):Register(7,12) = surface_duty(7): Register(7,13) = CS_Code(1): Register(7,14) = temp_pin(3): Register(7,15) = temp_surface(3)
+Register(8,16) = Time_CS(1): Register(8,11) = deep_duty(8):Register(8,12) = surface_duty(8): Register(8,13) = CS_Code(1): Register(8,14) = temp_pin(3): Register(8,15) = temp_surface(3)
+Register(9,16) = Time_CS(1): Register(9,11) = deep_duty(9):Register(9,12) = surface_duty(9): Register(9,13) = CS_Code(1): Register(9,14) = temp_pin(3): Register(9,15) = temp_surface(3)
+
+PAR1 = 7.525587 ' Q104040 - 30 SEC INTERVAL - LOWMARSH
+PAR2 = 250.85 
+
+Surface_Level_cm(1)= 110
+Surface_Level_cm(2)= 110
+Surface_Level_cm(3)= 110
+
+Case "LOWMARSH"
+'low
+'2009 xbee, pakbus 4
+Register(1,1) = 40 : sl_id(1)= Register(1,1): raw_pin(1)= Register(1,4) : raw_lag(1)=Register(1,5) : raw_surface(1)= Register(1,6) : raw_deep(1)= Register(1,7) : raw_above(1)= Register(1,8) : raw_air(1)= Register(1,9) : Arduino_Code(1)= Register(1,10) 
+Register(2,1) = 50 : sl_id(2)= Register(2,1): raw_pin(2)= Register(2,4) : raw_lag(2)=Register(2,5) : raw_surface(2)= Register(2,6) : raw_deep(2)= Register(2,7) : raw_above(2)= Register(2,8) : raw_air(2)= Register(2,9) : Arduino_Code(2)= Register(2,10) 
+Register(3,1) = 60 : sl_id(3)= Register(3,1): raw_pin(3)= Register(3,4) : raw_lag(3)=Register(3,5) : raw_surface(3)= Register(3,6) : raw_deep(3)= Register(3,7) : raw_above(3)= Register(3,8) : raw_air(3)= Register(3,9) : Arduino_Code(3)= Register(3,10)
+Register(4,1) = 41 : sl_id(4)= Register(4,1): raw_pin(4)= Register(4,4) : raw_lag(4)=Register(4,5) : raw_surface(4)= Register(4,6) : raw_deep(4)= Register(4,7) : raw_above(4)= Register(4,8) : raw_air(4)= Register(4,9) : Arduino_Code(4)= Register(4,10)
+Register(5,1) = 51 : sl_id(5)= Register(5,1): raw_pin(5)= Register(5,4) : raw_lag(5)=Register(5,5) : raw_surface(5)= Register(5,6) : raw_deep(5)= Register(5,7) : raw_above(5)= Register(5,8) : raw_air(5)= Register(5,9) : Arduino_Code(5)= Register(5,10)
+Register(6,1) = 61 : sl_id(6)= Register(6,1): raw_pin(6)= Register(6,4) : raw_lag(6)=Register(6,5) : raw_surface(6)= Register(6,6) : raw_deep(6)= Register(6,7) : raw_above(6)= Register(6,8) : raw_air(6)= Register(6,9) : Arduino_Code(6)= Register(6,10)
+Register(7,1) = 42 : sl_id(7)= Register(7,1): raw_pin(7)= Register(7,4) : raw_lag(7)=Register(7,5) : raw_surface(7)= Register(7,6) : raw_deep(7)= Register(7,7) : raw_above(7)= Register(7,8) : raw_air(7)= Register(7,9) : Arduino_Code(7)= Register(7,10)
+Register(8,1) = 52 : sl_id(8)= Register(8,1): raw_pin(8)= Register(8,4) : raw_lag(8)=Register(8,5) : raw_surface(8)= Register(8,6) : raw_deep(8)= Register(8,7) : raw_above(8)= Register(8,8) : raw_air(8)= Register(8,9) : Arduino_Code(8)= Register(8,10)
+Register(9,1) = 62 : sl_id(9)= Register(9,1): raw_pin(9)= Register(9,4) : raw_lag(9)=Register(9,5) : raw_surface(9)= Register(9,6) : raw_deep(9)= Register(9,7) : raw_above(9)= Register(9,8) : raw_air(9)= Register(9,9) : Arduino_Code(9)= Register(9,10) 
+
+Register(1,16) = Time_CS(1): Register(1,11) = deep_duty(1):Register(1,12) = surface_duty(1): Register(1,13) = CS_Code(1): Register(1,14) = temp_pin(1): Register(1,15) = temp_surface(1)
+Register(2,16) = Time_CS(1): Register(2,11) = deep_duty(2):Register(2,12) = surface_duty(2): Register(2,13) = CS_Code(1): Register(2,14) = temp_pin(1): Register(2,15) = temp_surface(1)
+Register(3,16) = Time_CS(1): Register(3,11) = deep_duty(3):Register(3,12) = surface_duty(3): Register(3,13) = CS_Code(1): Register(3,14) = temp_pin(1): Register(3,15) = temp_surface(1)
+Register(4,16) = Time_CS(1): Register(4,11) = deep_duty(4):Register(4,12) = surface_duty(4): Register(4,13) = CS_Code(1): Register(4,14) = temp_pin(2): Register(4,15) = temp_surface(2)
+Register(5,16) = Time_CS(1): Register(5,11) = deep_duty(5):Register(5,12) = surface_duty(5): Register(5,13) = CS_Code(1): Register(5,14) = temp_pin(2): Register(5,15) = temp_surface(2)
+Register(6,16) = Time_CS(1): Register(6,11) = deep_duty(6):Register(6,12) = surface_duty(6): Register(6,13) = CS_Code(1): Register(6,14) = temp_pin(2): Register(6,15) = temp_surface(2)
+Register(7,16) = Time_CS(1): Register(7,11) = deep_duty(7):Register(7,12) = surface_duty(7): Register(7,13) = CS_Code(1): Register(7,14) = temp_pin(3): Register(7,15) = temp_surface(3)
+Register(8,16) = Time_CS(1): Register(8,11) = deep_duty(8):Register(8,12) = surface_duty(8): Register(8,13) = CS_Code(1): Register(8,14) = temp_pin(3): Register(8,15) = temp_surface(3)
+Register(9,16) = Time_CS(1): Register(9,11) = deep_duty(9):Register(9,12) = surface_duty(9): Register(9,13) = CS_Code(1): Register(9,14) = temp_pin(3): Register(9,15) = temp_surface(3)
+
+Surface_Level_cm(1)= 145
+Surface_Level_cm(2)= 145
+Surface_Level_cm(3)= 145
+
+EndSelect
+
+'********************Light Sensors****************************************************************
+''LI190BL Quantum Q104039
+''
+'' Manfacturing date: Sept 16, 2016
+'' Calibration date: Sept 25, 2016
+'' Calibration Constant : 6.66 microamps per 1000 umols^1m^2
+'' Multiplier for use with LI-COR handheld meters: -150.26 umol s^1m^2 per microamp
+'' Multiplier for use with LI-COR 109RBL: 150.26 umol s^1m^2 per microamp
+'' Mutliplier for use with LI-COR 2290 (604ohm) Milivolt Adapter: -248.77 umol ^1m^2 per milivolt
+'' if this is and SL sensor: Multiplier: -200.00 umolS^1m^2      
+ 
+''LI190BL Quantum Q104040
+''
+'' Manfacturing date: Sept 16, 2016
+'' Calibration date: Sept 25, 2016
+'' Calibration Constant : 6.6 microamps per 1000 umols^1m^2
+'' Multiplier for use with LI-COR handheld meters: -151.49 umol s^1m^2 per microamp
+'' Multiplier for use with LI-COR 109RBL: 151.49 umol s^1m^2 per microamp
+'' Mutliplier for use with LI-COR 2290 (604ohm) Milivolt Adapter: -250.8 umol ^1m^2 per milivolt
+'' if this is and SL sensor: Multiplier: -200.00 umolS^1m^2      
+ 
+
